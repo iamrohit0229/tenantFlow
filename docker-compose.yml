@@ -1,10 +1,5 @@
-version: '3.8'
-
 services:
 
-  # ─────────────────────────────────────────────
-  # PostgreSQL — Tenant Service
-  # ─────────────────────────────────────────────
   tenant-db:
     image: postgres:15-alpine
     container_name: tenantflow-tenant-db
@@ -24,9 +19,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─────────────────────────────────────────────
-  # PostgreSQL — Identity Service
-  # ─────────────────────────────────────────────
   identity-db:
     image: postgres:15-alpine
     container_name: tenantflow-identity-db
@@ -46,9 +38,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─────────────────────────────────────────────
-  # PostgreSQL — Billing Service
-  # ─────────────────────────────────────────────
   billing-db:
     image: postgres:15-alpine
     container_name: tenantflow-billing-db
@@ -68,9 +57,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─────────────────────────────────────────────
-  # MongoDB — Audit Service
-  # ─────────────────────────────────────────────
   audit-mongodb:
     image: mongo:7.0
     container_name: tenantflow-audit-mongodb
@@ -90,9 +76,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─────────────────────────────────────────────
-  # Redis — Caching + Rate Limiting
-  # ─────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: tenantflow-redis
@@ -108,9 +91,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─────────────────────────────────────────────
-  # Zookeeper — Required by Kafka
-  # ─────────────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: tenantflow-zookeeper
@@ -120,9 +100,6 @@ services:
     networks:
       - tenantflow-network
 
-  # ─────────────────────────────────────────────
-  # Apache Kafka — Event Streaming
-  # ─────────────────────────────────────────────
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: tenantflow-kafka
@@ -133,7 +110,10 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
     networks:
@@ -144,10 +124,6 @@ services:
       timeout: 10s
       retries: 5
 
-  # ─────────────────────────────────────────────
-  # Kafka UI — Visual Kafka Management
-  # (Bonus: See messages, topics visually)
-  # ─────────────────────────────────────────────
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: tenantflow-kafka-ui
@@ -157,26 +133,10 @@ services:
       - "9090:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: tenantflow-kafka
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
     networks:
       - tenantflow-network
 
-  # ─────────────────────────────────────────────
-  # Application Services
-  # Added progressively week by week
-  # ─────────────────────────────────────────────
-
-  # eureka-server:    ← Week 4
-  # config-server:    ← Week 4
-  # api-gateway:      ← Week 4
-  # tenant-service:   ← Week 2-3
-  # identity-service: ← Week 3
-  # billing-service:  ← Week 3-4
-  # audit-service:    ← Week 5
-
-# ─────────────────────────────────────────────
-# Volumes
-# ─────────────────────────────────────────────
 volumes:
   tenant-db-data:
   identity-db-data:
@@ -184,9 +144,6 @@ volumes:
   audit-mongodb-data:
   redis-data:
 
-# ─────────────────────────────────────────────
-# Networks
-# ─────────────────────────────────────────────
 networks:
-  nexusgate-network:
+  tenantflow-network:
     driver: bridge

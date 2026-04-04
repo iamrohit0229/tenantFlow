@@ -29,5 +29,5 @@ management:
 
 logging:
   level:
-    com.nexusgate: DEBUG
+    com.tenantflow: DEBUG
     com.netflix.eureka: INFO
