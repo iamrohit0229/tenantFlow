@@ -1,3 +1,5 @@
+# tenant-service/src/main/resources/application.yml
+
 spring:
   application:
     name: tenant-service
@@ -8,6 +10,12 @@ spring:
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
 
   # JPA Configuration
   jpa:
@@ -28,11 +36,13 @@ spring:
 # Server Configuration
 server:
   port: 8081
+  error:
+    include-message: always
+    include-binding-errors: always
 
 # Logging Configuration
 logging:
   level:
     com.tenantflow: DEBUG
     org.hibernate.SQL: DEBUG
-    org.springframework.web.servlet.mvc.method.annotation: DEBUG
-
+    org.flywaydb: DEBUG

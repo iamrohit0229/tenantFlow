@@ -1,23 +1,61 @@
 package com.tenantflow.tenant.service;
 
-import com.tenantflow.tenant.model.Tenant;
-import com.tenantflow.tenant.model.TenantStatus;
+import com.tenantflow.tenant.dto.request.TenantRequest;
+import com.tenantflow.tenant.dto.request.UpdateTenantRequest;
+import com.tenantflow.tenant.dto.response.PageResponse;
+import com.tenantflow.tenant.dto.response.TenantResponse;
+import com.tenantflow.tenant.dto.response.TenantStatsResponse;
+import com.tenantflow.tenant.entity.SubscriptionPlan;
+import com.tenantflow.tenant.entity.TenantStatus;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
+import java.util.UUID;
 
 public interface TenantService {
 
-    Tenant createTenant(Tenant tenant);
+    // ─────────────────────────────────────────
+    // CRUD Operations
+    // ─────────────────────────────────────────
 
-    Tenant getTenantById(Long id);
+    TenantResponse createTenant(TenantRequest request);
 
-    Tenant getTenantByDomain(String domain);
+    TenantResponse getTenantById(UUID id);
 
-    List<Tenant> getAllTenants();
+    TenantResponse getTenantBySubdomain(String subdomain);
 
-    List<Tenant> getTenantsByStatus(TenantStatus status);
+    TenantResponse updateTenant(UUID id, UpdateTenantRequest request);
 
-    Tenant updateTenant(Long id, Tenant tenant);
+    void deleteTenant(UUID id);
 
-    void deleteTenant(Long id);
+    // ─────────────────────────────────────────
+    // List + Filter Operations
+    // ─────────────────────────────────────────
+
+    PageResponse<TenantResponse> getAllTenants(Pageable pageable);
+
+    PageResponse<TenantResponse> getTenantsByStatus(
+            TenantStatus status,
+            Pageable pageable
+    );
+
+    PageResponse<TenantResponse> getTenantsByPlan(
+            SubscriptionPlan plan,
+            Pageable pageable
+    );
+
+    // ─────────────────────────────────────────
+    // Business Operations
+    // ─────────────────────────────────────────
+
+    TenantResponse suspendTenant(UUID id);
+
+    TenantResponse activateTenant(UUID id);
+
+    TenantResponse upgradePlan(UUID id, SubscriptionPlan newPlan);
+
+    // ─────────────────────────────────────────
+    // Stats + Dashboard
+    // ─────────────────────────────────────────
+
+    TenantStatsResponse getTenantStats();
 }
