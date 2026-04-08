@@ -14,7 +14,7 @@ services:
     networks:
       - tenantflow-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d tenant_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +33,7 @@ services:
     networks:
       - tenantflow-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d identity_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -52,7 +52,7 @@ services:
     networks:
       - tenantflow-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d billing_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -99,6 +99,12 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     networks:
       - tenantflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | timeout 2 nc -w 2 localhost 2181 | exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
