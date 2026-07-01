@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: audit-service
+  profiles:
+    active: dev
+
+  # --- Kafka Consumer ---
+  kafka:
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+
+# --- Actuator ---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# --- OpenAPI ---
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+# --- Logging ---
+logging:
+  level:
+    com.tenantflow.audit: DEBUG
+    org.apache.kafka: WARN
+    org.springframework.data.mongodb: INFO
+
+server:
+  port: 8084
