@@ -1,3 +1,5 @@
+// tenant-service/src/main/java/com/tenantflow/tenant/service/impl/TenantServiceImpl.java
+
 package com.tenantflow.tenant.service.impl;
 
 import com.tenantflow.tenant.dto.request.TenantRequest;
@@ -11,8 +13,11 @@ import com.tenantflow.tenant.entity.TenantStatus;
 import com.tenantflow.tenant.exception.TenantAlreadyExistsException;
 import com.tenantflow.tenant.exception.TenantNotFoundException;
 import com.tenantflow.tenant.exception.TenantOperationException;
+import com.tenantflow.tenant.kafka.TenantEventProducer;
+import com.tenantflow.tenant.kafka.event.TenantEvent;
 import com.tenantflow.tenant.mapper.TenantMapper;
 import com.tenantflow.tenant.repository.TenantRepository;
+import com.tenantflow.tenant.service.TenantSchemaService;
 import com.tenantflow.tenant.service.TenantService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -33,9 +38,12 @@ public class TenantServiceImpl implements TenantService {
 
     private final TenantRepository tenantRepository;
     private final TenantMapper tenantMapper;
+    private final TenantEventProducer tenantEventProducer;
+    private final TenantSchemaService tenantSchemaService;
 
     @PersistenceContext
     private EntityManager entityManager;
+
     // ─────────────────────────────────────────
     // CREATE
     // ─────────────────────────────────────────
@@ -50,7 +58,6 @@ public class TenantServiceImpl implements TenantService {
         if (tenantRepository.existsByNameAndDeletedAtIsNull(request.name())) {
             throw new TenantAlreadyExistsException("name", request.name());
         }
-
         if (tenantRepository.existsBySubdomainAndDeletedAtIsNull(request.subdomain())) {
             throw new TenantAlreadyExistsException("subdomain", request.subdomain());
         }
@@ -61,7 +68,24 @@ public class TenantServiceImpl implements TenantService {
 
         entityManager.flush();
         entityManager.refresh(savedTenant);
-        log.info("Tenant created successfully with id: {}", savedTenant.getId());
+
+        // Create dedicated PostgreSQL schema for this tenant
+        // This is the schema-per-tenant isolation pattern!
+        tenantSchemaService.createSchemaForTenant(savedTenant.getSubdomain());
+
+        // Publish event to Kafka — audit-service will consume this
+        tenantEventProducer.publishTenantCreated(
+                TenantEvent.created(
+                        savedTenant.getId().toString(),
+                        savedTenant.getName(),
+                        savedTenant.getSubdomain(),
+                        savedTenant.getPlan().name(),
+                        savedTenant.getStatus().name()
+                )
+        );
+
+        log.info("Tenant created successfully with id: {} and schema: tenant_{}",
+                savedTenant.getId(), savedTenant.getSubdomain());
 
         return tenantMapper.toResponse(savedTenant);
     }
@@ -73,9 +97,7 @@ public class TenantServiceImpl implements TenantService {
     @Override
     public TenantResponse getTenantById(UUID id) {
         log.debug("Fetching tenant by id: {}", id);
-
-        Tenant tenant = findTenantByIdOrThrow(id);
-        return tenantMapper.toResponse(tenant);
+        return tenantMapper.toResponse(findTenantByIdOrThrow(id));
     }
 
     @Override
@@ -103,9 +125,7 @@ public class TenantServiceImpl implements TenantService {
 
     @Override
     public PageResponse<TenantResponse> getTenantsByStatus(
-            TenantStatus status,
-            Pageable pageable
-    ) {
+            TenantStatus status, Pageable pageable) {
         log.debug("Fetching tenants by status: {}", status);
 
         Page<TenantResponse> page = tenantRepository
@@ -117,9 +137,7 @@ public class TenantServiceImpl implements TenantService {
 
     @Override
     public PageResponse<TenantResponse> getTenantsByPlan(
-            SubscriptionPlan plan,
-            Pageable pageable
-    ) {
+            SubscriptionPlan plan, Pageable pageable) {
         log.debug("Fetching tenants by plan: {}", plan);
 
         Page<TenantResponse> page = tenantRepository
@@ -150,8 +168,18 @@ public class TenantServiceImpl implements TenantService {
         tenantMapper.updateEntity(request, tenant);
         Tenant updatedTenant = tenantRepository.save(tenant);
 
-        log.info("Tenant updated successfully with id: {}", id);
+        // Publish update event — audit trail records every change
+        tenantEventProducer.publishTenantUpdated(
+                TenantEvent.updated(
+                        updatedTenant.getId().toString(),
+                        updatedTenant.getName(),
+                        updatedTenant.getSubdomain(),
+                        updatedTenant.getPlan().name(),
+                        updatedTenant.getStatus().name()
+                )
+        );
 
+        log.info("Tenant updated successfully with id: {}", id);
         return tenantMapper.toResponse(updatedTenant);
     }
 
@@ -174,6 +202,18 @@ public class TenantServiceImpl implements TenantService {
 
         tenant.softDelete();
         tenantRepository.save(tenant);
+
+        // Publish deleted event
+        // Note: soft delete — schema is preserved
+        // Data still exists but tenant is deactivated
+        tenantEventProducer.publishTenantDeleted(
+                TenantEvent.deleted(
+                        tenant.getId().toString(),
+                        tenant.getName(),
+                        tenant.getSubdomain(),
+                        tenant.getPlan().name()
+                )
+        );
 
         log.info("Tenant soft deleted successfully with id: {}", id);
     }
@@ -199,8 +239,17 @@ public class TenantServiceImpl implements TenantService {
         tenant.setStatus(TenantStatus.SUSPENDED);
         Tenant savedTenant = tenantRepository.save(tenant);
 
-        log.info("Tenant suspended successfully with id: {}", id);
+        // Publish suspended event — critical for billing + audit
+        tenantEventProducer.publishTenantSuspended(
+                TenantEvent.suspended(
+                        savedTenant.getId().toString(),
+                        savedTenant.getName(),
+                        savedTenant.getSubdomain(),
+                        savedTenant.getPlan().name()
+                )
+        );
 
+        log.info("Tenant suspended successfully with id: {}", id);
         return tenantMapper.toResponse(savedTenant);
     }
 
@@ -221,8 +270,18 @@ public class TenantServiceImpl implements TenantService {
         tenant.setStatus(TenantStatus.ACTIVE);
         Tenant savedTenant = tenantRepository.save(tenant);
 
-        log.info("Tenant activated successfully with id: {}", id);
+        // Publish updated event on activation
+        tenantEventProducer.publishTenantUpdated(
+                TenantEvent.updated(
+                        savedTenant.getId().toString(),
+                        savedTenant.getName(),
+                        savedTenant.getSubdomain(),
+                        savedTenant.getPlan().name(),
+                        savedTenant.getStatus().name()
+                )
+        );
 
+        log.info("Tenant activated successfully with id: {}", id);
         return tenantMapper.toResponse(savedTenant);
     }
 
@@ -242,9 +301,19 @@ public class TenantServiceImpl implements TenantService {
         tenant.upgradePlan(newPlan);
         Tenant savedTenant = tenantRepository.save(tenant);
 
+        // Publish plan upgrade event — billing-service tracks this
+        tenantEventProducer.publishTenantUpdated(
+                TenantEvent.updated(
+                        savedTenant.getId().toString(),
+                        savedTenant.getName(),
+                        savedTenant.getSubdomain(),
+                        savedTenant.getPlan().name(),
+                        savedTenant.getStatus().name()
+                )
+        );
+
         log.info("Plan upgraded successfully for tenant id: {} to: {}",
                 id, newPlan);
-
         return tenantMapper.toResponse(savedTenant);
     }
 

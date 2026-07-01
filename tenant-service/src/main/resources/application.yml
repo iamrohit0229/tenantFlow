@@ -1,48 +1,59 @@
-# tenant-service/src/main/resources/application.yml
-
 spring:
   application:
     name: tenant-service
+  profiles:
+    active: dev
 
-  # Database Configuration
-  datasource:
-    url: jdbc:postgresql://localhost:5432/tenant_db
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 20000
-      idle-timeout: 300000
-      max-lifetime: 1200000
-
-  # JPA Configuration
+  # --- JPA ---
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
 
-  # Flyway Configuration
+  # --- Flyway ---
   flyway:
     enabled: true
-    baseline-on-migrate: true
     locations: classpath:db/migration
 
-# Server Configuration
-server:
-  port: 8081
-  error:
-    include-message: always
-    include-binding-errors: always
+  # --- Kafka Producer ---
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        spring.json.add.type.headers: false
+        enable.idempotence: true
 
-# Logging Configuration
+# --- Actuator ---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# --- OpenAPI ---
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+# --- Logging ---
 logging:
   level:
-    com.tenantflow: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.flywaydb: DEBUG
+    com.tenantflow.tenant: DEBUG
+    org.hibernate.SQL: INFO
+    org.apache.kafka: WARN
+
+server:
+  port: 8081
