@@ -1,15 +1,16 @@
+# identity-service/src/main/resources/application.yml
+
 server:
   port: 8082
 
 spring:
   application:
     name: identity-service
+  profiles:
+    active: dev
 
   # --- Database ---
   datasource:
-    url: jdbc:postgresql://localhost:5433/identity_db
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -35,8 +36,6 @@ spring:
   # --- Redis ---
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
       timeout: 2000ms
       lettuce:
         pool:
@@ -46,7 +45,6 @@ spring:
 
   # --- Kafka ---
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -58,8 +56,6 @@ spring:
 
 # --- JWT ---
 jwt:
-  secret: ${JWT_SECRET}
-  expiration-ms: ${JWT_EXPIRATION_MS}
   refresh-expiration-ms: 604800000
 
 # --- Actuator ---
