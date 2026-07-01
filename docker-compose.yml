@@ -99,12 +99,12 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     networks:
       - tenantflow-network
-    healthcheck:
-      test: ["CMD-SHELL", "echo ruok | timeout 2 nc -w 2 localhost 2181 | exit 1"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
+#    healthcheck:
+#      test: ["CMD-SHELL", "echo ruok | timeout 2 nc -w 2 localhost 2181 | exit 1"]
+#      interval: 10s
+#      timeout: 10s
+#      retries: 10
+#      start_period: 30s
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
