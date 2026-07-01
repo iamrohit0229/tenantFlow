@@ -1,0 +1,13 @@
+spring:
+  # --- MongoDB ---
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: audit_db
+
+  # --- Kafka ---
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: audit-service-group
